@@ -24,7 +24,22 @@ screen (or puts the Mac to sleep) for you.
 - macOS 13 (Ventura) or later
 - [Swift toolchain](https://www.swift.org/install/) (Xcode or Command Line Tools)
 
-## Build & Install
+## Install
+
+Install the prebuilt app with [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask dayflower/tap/lidlock
+```
+
+The app is distributed with an ad-hoc signature, so after installing you need to
+clear the quarantine attribute before first launch:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/LidLock.app
+```
+
+## Build from source
 
 Build a signed `.app` bundle and copy it to `/Applications`:
 
