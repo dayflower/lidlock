@@ -25,11 +25,11 @@ make run      # Run directly with `swift run` (quick iteration)
 make app      # Assemble .build/LidLock.app (ad-hoc signed)
 make install  # Build the .app and copy it to /Applications
 make format   # Format sources in place with swift-format
-make lint     # Lint with swift-format --strict
+make check    # Lint (check only) with swift-format --strict
 make clean    # Remove build artifacts
 ```
 
-Always run `make lint` (and `make build`) before finishing a change. There is
+Always run `make check` (and `make build`) before finishing a change. There is
 no test target yet; verify behavior by building and, when relevant, running the
 app.
 
@@ -42,8 +42,17 @@ Note: `make run` / `swift run` cannot exercise `LSUIElement` (Dock hiding) or
 - `Sources/lidlock/` — Swift sources (the executable target).
 - `Resources/Info.plist` — bundle metadata (`LSUIElement`, version, bundle id).
 - `scripts/bundle.sh` — assembles + ad-hoc signs the `.app`.
+- `scripts/bump-version.sh` — bumps the version and opens a release PR (see below).
+- `.github/workflows/` — CI (`ci.yml`: lint + build) and release (`release.yml`).
 - `Makefile`, `Package.swift` — build entry points.
 - `notes/` — development notes; not shipped.
+
+## CI / Release
+
+- `ci.yml` runs `make check` and `make build` on every PR and push to `main`.
+- To cut a release, run `scripts/bump-version.sh <version|patch|minor|major>` on
+  `main`. It opens a version-bump PR. Merging that PR makes `release.yml` tag
+  `v<version>`, build the `.app`, and publish it as a GitHub Release (zip).
 
 Source responsibilities (details in [notes/DEVELOP.md](notes/DEVELOP.md)):
 `ClamshellMonitor` (IOKit lid state), `DisplayMonitor` (external display via
