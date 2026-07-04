@@ -43,13 +43,18 @@ Note: `make run` / `swift run` cannot exercise `LSUIElement` (Dock hiding) or
 - `Resources/Info.plist` — bundle metadata (`LSUIElement`, version, bundle id).
 - `scripts/bundle.sh` — assembles + ad-hoc signs the `.app`.
 - `scripts/bump-version.sh` — bumps the version and opens a release PR (see below).
-- `.github/workflows/` — CI (`ci.yml`: lint + build) and release (`release.yml`).
+- `.github/workflows/` — CI (`ci.yml`: lint + build), release (`release.yml`),
+  and `pinact.yml` (pins action refs to commit SHAs on PRs).
 - `Makefile`, `Package.swift` — build entry points.
 - `notes/` — development notes; not shipped.
 
 ## CI / Release
 
 - `ci.yml` runs `make check` and `make build` on every PR and push to `main`.
+- `pinact.yml` runs on PRs and auto-pins GitHub Actions references to immutable
+  commit SHAs (via [pinact](https://github.com/suzuki-shunsuke/pinact-action)),
+  committing fixes back to the PR branch. It authenticates with a GitHub App
+  (`ACTIONS_APP_ID` variable, `ACTIONS_APP_PRIVATE_KEY` secret).
 - To cut a release, run `scripts/bump-version.sh <version|patch|minor|major>` on
   `main`. It opens a version-bump PR. Merging that PR makes `release.yml` tag
   `v<version>`, build the `.app`, and publish it as a GitHub Release (zip).
