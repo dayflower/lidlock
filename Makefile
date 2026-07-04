@@ -3,16 +3,16 @@ APP_DIR := .build/$(APP_NAME).app
 INSTALL_DIR := /Applications
 SWIFT_SOURCES := Sources
 
-.PHONY: build run app install clean format lint
+.PHONY: build run app install clean format check
 
 build:
 	swift build -c release
 
 format:
-	swift-format format --in-place --recursive $(SWIFT_SOURCES)
+	xcrun swift-format format --in-place --recursive $(SWIFT_SOURCES)
 
-lint:
-	swift-format lint --strict --recursive $(SWIFT_SOURCES)
+check:
+	xcrun swift-format lint --strict --recursive $(SWIFT_SOURCES)
 
 run:
 	swift run
