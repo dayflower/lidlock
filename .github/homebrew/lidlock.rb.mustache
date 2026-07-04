@@ -1,0 +1,20 @@
+cask "lidlock" do
+  version "{{version}}"
+  sha256 "{{artifact.sha256}}"
+
+  url "{{artifact.url}}",
+      verified: "github.com/dayflower/lidlock/"
+  name "LidLock"
+  desc "Menu-bar app that locks or sleeps a Mac in clamshell mode"
+  homepage "https://github.com/dayflower/lidlock"
+
+  depends_on macos: ">= :ventura"
+
+  app "LidLock.app"
+
+  caveats <<~EOS
+    This application is signed with an ad-hoc signature.
+    You need to run 'xattr -dr com.apple.quarantine /Applications/LidLock.app'
+    after installation to open it.
+  EOS
+end

@@ -65,3 +65,20 @@ jobs:
           gh release create "v$VERSION" "LidLock-$VERSION.zip" \
             --title "v$VERSION" \
             --generate-notes
+
+      - name: Update Homebrew tap
+        if: steps.version.outputs.release == 'true'
+        uses: dayflower/brew-up@v0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          release-tag: v${{ steps.version.outputs.version }}
+          template-path: .github/homebrew/lidlock.rb.mustache
+          output-path: Casks/lidlock.rb
+          asset-map: |
+            default=LidLock-{{version}}.zip
+          target-repo: dayflower/homebrew-tap
+          target-branch: main
+          target-repo-token: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+          publish-mode: pr-auto-merge
+          auto-merge-method: squash
