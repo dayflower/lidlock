@@ -1,17 +1,29 @@
 #!/bin/bash
-# Assemble the SwiftPM executable into a .app bundle and ad-hoc sign it.
-# A proper bundle is required for LSUIElement, and ad-hoc signing keeps
-# SMAppService (launch at login) stable.
+# Assemble the SwiftPM executable into a signed .app bundle.
+# A proper bundle is required for LSUIElement, and a code signature gives
+# SMAppService (launch at login) a stable bundle identity.
+#
+# Signing: releases set CODESIGN_IDENTITY to a Developer ID identity, which also
+# turns on the hardened runtime and a secure timestamp so the bundle can be
+# notarized (see scripts/notarize-app.sh). Local builds leave it unset and fall
+# back to SIGN_ID, which defaults to ad-hoc ("-"). Ad-hoc signatures change the
+# CDHash on every rebuild, so macOS may drop the login-item registration; to
+# keep it stable, create a self-signed code-signing certificate in Keychain
+# Access and pass it via SIGN_ID:
+#
+#   SIGN_ID="My Dev Cert" ./scripts/bundle.sh
 set -euo pipefail
 
 APP_NAME="LidLock"
 EXECUTABLE="lidlock"
 CONFIG="${CONFIG:-release}"
+SIGN_ID="${SIGN_ID:--}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${ROOT_DIR}/.build/${CONFIG}"
 APP_DIR="${ROOT_DIR}/.build/${APP_NAME}.app"
 ICON_SRC="${ROOT_DIR}/icons/lidlock.icon"
+ENTITLEMENTS="${ROOT_DIR}/scripts/entitlements.plist"
 
 echo "==> Building (${CONFIG})"
 swift build -c "${CONFIG}" --package-path "${ROOT_DIR}"
@@ -67,7 +79,18 @@ cp "${ICON_TMP}/out/Assets.car" "${APP_DIR}/Contents/Resources/Assets.car"
 /usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" "${APP_DIR}/Contents/Info.plist" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "${APP_DIR}/Contents/Info.plist"
 
-echo "==> Ad-hoc signing"
-codesign --force --sign - "${APP_DIR}"
+if [ -n "${CODESIGN_IDENTITY:-}" ]; then
+	echo "==> Signing with Developer ID (hardened runtime)"
+	codesign --force --options runtime --timestamp \
+		--sign "${CODESIGN_IDENTITY}" \
+		--entitlements "${ENTITLEMENTS}" \
+		"${APP_DIR}"
+else
+	echo "==> Signing with ${SIGN_ID}"
+	codesign --force \
+		--sign "${SIGN_ID}" \
+		--entitlements "${ENTITLEMENTS}" \
+		"${APP_DIR}"
+fi
 
 echo "==> Done: ${APP_DIR}"
