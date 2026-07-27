@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>lidlock</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.dayflower.lidlock</string>
+	<string>io.github.dayflower.lidlock</string>
 	<key>CFBundleName</key>
 	<string>LidLock</string>
 	<key>CFBundlePackageType</key>

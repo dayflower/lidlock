@@ -4,10 +4,11 @@ import os
 /// Unified logging categories for the app.
 ///
 /// Logs are grouped under the bundle identifier subsystem so they can be
-/// filtered with, e.g., `log stream --predicate 'subsystem == "com.dayflower.lidlock"'`.
+/// filtered with, e.g.,
+/// `log stream --predicate 'subsystem == "io.github.dayflower.lidlock"'`.
 enum Log {
   private static let subsystem =
-    Bundle.main.bundleIdentifier ?? "com.dayflower.lidlock"
+    Bundle.main.bundleIdentifier ?? "io.github.dayflower.lidlock"
 
   static let clamshell = Logger(subsystem: subsystem, category: "clamshell")
   static let scheduler = Logger(subsystem: subsystem, category: "scheduler")
