@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Not sandboxed, and no hardened-runtime exceptions are needed: the private
+	     login.framework loaded via dlopen and the /usr/bin/pmset helper are both
+	     Apple platform binaries, so library validation and process spawning pass
+	     as is. Kept as a hook for future needs (e.g. get-task-allow for
+	     attaching a debugger). -->
+</dict>
+</plist>

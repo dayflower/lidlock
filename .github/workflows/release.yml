@@ -2,10 +2,23 @@ name: Release
 
 # When a version-bump PR is merged into main (see scripts/bump-version.sh),
 # the version in Resources/Info.plist changes. This workflow reads that version,
-# and if a matching tag does not yet exist, it tags, builds the .app, and
-# publishes a GitHub Release. On ordinary pushes (version unchanged) it exits
-# early. Using GITHUB_TOKEN only — no PAT needed — since tagging and releasing
-# happen in the same job.
+# and if a matching tag does not yet exist, it builds the .app, signs it with a
+# Developer ID certificate, notarizes and staples it, and publishes a GitHub
+# Release. On ordinary pushes (version unchanged) it exits early. Using
+# GITHUB_TOKEN only — no PAT needed — since tagging and releasing happen in the
+# same job.
+#
+# The tag is created by `gh release create` at the very end rather than up
+# front, so a failure part-way through (notarization in particular) leaves no
+# tag behind and the run can simply be retried.
+#
+# Signing and notarization need these repository secrets:
+#   MACOS_CERTIFICATE_P12       base64 of the Developer ID Application .p12
+#   MACOS_CERTIFICATE_PASSWORD  password of that .p12
+#   APPLE_API_KEY_ID            App Store Connect API key id
+#   APPLE_API_ISSUER_ID         App Store Connect issuer id
+#   APPLE_API_KEY_P8            base64 of the AuthKey_*.p8 private key
+# The Homebrew step also needs HOMEBREW_GITHUB_API_TOKEN.
 
 on:
   push:
@@ -37,18 +50,53 @@ jobs:
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create and push tag
+      # The action creates a throwaway keychain and removes it again in its post
+      # step, so nothing has to be cleaned up by hand.
+      - name: Import Developer ID certificate
+        if: steps.version.outputs.release == 'true'
+        uses: Apple-Actions/import-codesign-certs@b610f78488812c1e56b20e6df63ec42d833f2d14 # v6.0.0
+        with:
+          p12-file-base64: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          p12-password: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+
+      # Pass the identity to bundle.sh by its SHA-1 hash so the certificate's
+      # common name never has to be hardcoded. The action put its keychain on the
+      # search list, so search that rather than guessing where the file lives;
+      # the runner's own login keychain holds no signing identities.
+      - name: Resolve signing identity
         if: steps.version.outputs.release == 'true'
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
+          identity="$(security find-identity -v -p codesigning \
+            | awk '/Developer ID Application/ { print $2; exit }')"
+          if [ -z "$identity" ]; then
+            echo "No Developer ID Application identity on the keychain search list" >&2
+            security list-keychains >&2
+            security find-identity -v -p codesigning >&2
+            exit 1
+          fi
+          echo "CODESIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
 
       - name: Build app bundle
         if: steps.version.outputs.release == 'true'
         run: make app
+
+      # Stapling writes the ticket into the bundle, so this has to happen before
+      # the distributed zip is created.
+      - name: Notarize and staple
+        if: steps.version.outputs.release == 'true'
+        env:
+          NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          NOTARY_KEY_BASE64: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          NOTARY_KEY_PATH="$RUNNER_TEMP/notary-key.p8"
+          export NOTARY_KEY_PATH
+          printf '%s' "$NOTARY_KEY_BASE64" | base64 --decode > "$NOTARY_KEY_PATH"
+          ./scripts/notarize-app.sh
+
+      - name: Remove notarization key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/notary-key.p8"
 
       - name: Package .app into a zip
         if: steps.version.outputs.release == 'true'
@@ -56,6 +104,8 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           ditto -c -k --sequesterRsrc --keepParent .build/LidLock.app "LidLock-$VERSION.zip"
 
+      # --target tags the commit being released, so no separate tagging step is
+      # needed and nothing is tagged unless the build got this far.
       - name: Create GitHub Release
         if: steps.version.outputs.release == 'true'
         env:
@@ -63,6 +113,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           gh release create "v$VERSION" "LidLock-$VERSION.zip" \
+            --target "$GITHUB_SHA" \
             --title "v$VERSION" \
             --generate-notes
 
